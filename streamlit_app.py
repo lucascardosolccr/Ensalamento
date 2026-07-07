@@ -1,55 +1,57 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 from typing import List, Dict, Any
 
+# TENTATIVA DEFENSIVA DE IMPORTAÇÃO GRÁFICA (Prevenção de quebra do servidor)
+HAS_MATPLOTLIB = False
+try:
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as patches
+    HAS_MATPLOTLIB = True
+except ImportError:
+    HAS_MATPLOTLIB = False
+
 # ==============================================================================
-# CONFIGURAÇÃO DA PÁGINA (UI/UX DESIGN & WCAG ACCESSIBILITY)
+# CONFIGURAÇÃO DA PÁGINA (UI/UX DESIGN & ACCESSIBILITY)
 # ==============================================================================
 st.set_page_config(
-    page_title="PROMPT MASTER - Otimizador de Salas de Aula",
+    page_title="PROMPT MASTER - Otimizador de Salas",
     page_icon="📐",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilização CSS customizada para interface corporativa limpa
+# Estilização CSS de nível corporativo
 st.markdown("""
 <style>
-    .reportview-container .main .block-container{ padding-top: 2rem; }
-    .stMetric { background-color: rgba(28, 131, 225, 0.1); padding: 15px; border-radius: 10px; border-left: 5px solid #1C83E1; }
+    .reportview-container .main .block-container { padding-top: 2rem; }
+    .stMetric { background-color: rgba(28, 131, 225, 0.08); padding: 15px; border-radius: 10px; border-left: 5px solid #1C83E1; }
     .stAlert { border-radius: 10px; }
     div.stButton > button:first-child { background-color: #1C83E1; color: white; border-radius: 8px; width: 100%; }
 </style>
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# CAMADA DE INFRAESTRUTURA LOGÍSTICA / MODELOS DE DADOS
+# MODELO DE INFRAESTRUTURA LOGÍSTICA
 # ==============================================================================
 class Obstacle:
     def __init__(self, name: str, x: float, y: float, w: float, d: float):
         self.name = name
-        self.x = x  # Canto inferior esquerdo
+        self.x = x
         self.y = y
-        self.w = w  # Largura (X)
-        self.d = d  # Profundidade (Y)
+        self.w = w
+        self.d = d
 
     def intersects(self, cx1: float, cy1: float, cx2: float, cy2: float) -> bool:
-        # Algoritmo AABB (Axis-Aligned Bounding Box) para detecção de colisão hígida
         ox1, oy1 = self.x, self.y
         ox2, oy2 = self.x + self.w, self.y + self.d
         return not (cx2 <= ox1 or cx1 >= ox2 or cy2 <= oy1 or cy1 >= oy2)
 
 # ==============================================================================
-# CAMADA DE ENGENHARIA DE REQUISITOS E ALGORITMOS DE OTIMIZAÇÃO
+# MOTOR MATEMÁTICO DE OTIMIZAÇÃO (PESQUISA OPERACIONAL)
 # ==============================================================================
 class RoomOptimizer:
-    """
-    Motor matemático de otimização espacial para alocação discreta de mobiliário.
-    Aplica heurísticas de busca em grade espacial fina com restrições poligonais e AABB.
-    """
     @staticmethod
     def optimize(
         room_w: float, room_d: float,
@@ -61,7 +63,6 @@ class RoomOptimizer:
         scenario_type: str = "Padrão"
     ) -> Dict[str, Any]:
         
-        # Ajuste de margens dinâmicas baseado no cenário de Pesquisa Operacional
         if scenario_type == "Conservador":
             space_lat *= 1.2
             space_front *= 1.2
@@ -70,10 +71,9 @@ class RoomOptimizer:
             space_lat *= 0.95
             space_front *= 0.95
             safety_margin = 1.0
-        else: # Padrão
+        else:
             safety_margin = 1.0
 
-        # Pegada ergonômica da célula unitária
         cell_w = desk_w + space_lat
         cell_d = desk_d + space_front
 
@@ -83,7 +83,6 @@ class RoomOptimizer:
         total_area = room_w * room_d
         fiscal_area = room_w * corr_front
         
-        # Heurística de Micro-Ajuste Espacial (Sub-grid offset sweeping)
         for offset_x in np.linspace(0, min(cell_w, 0.1), 3):
             for offset_y in np.linspace(0, min(cell_d, 0.1), 3):
                 current_desks = []
@@ -94,7 +93,7 @@ class RoomOptimizer:
                 end_y = room_d - corr_back
 
                 center_x = room_w / 2.0
-                corr_center_width = 1.0 # 1 metro de corredor central padrão
+                corr_center_width = 1.0
 
                 y = start_y
                 while y + desk_d <= end_y:
@@ -145,7 +144,7 @@ class RoomOptimizer:
         }
 
 # ==============================================================================
-# CAMADA DE INTERFACE GRÁFICA (VISUALIZAÇÃO DE DADOS & INTERAÇÃO)
+# INTERFACE GRÁFICA DO USUÁRIO
 # ==============================================================================
 def main():
     st.title("📐 PROMPT MASTER")
@@ -172,7 +171,7 @@ def main():
         desk_w = st.number_input("Largura da Carteira (m)", min_value=0.1, max_value=3.0, value=desk_w, step=0.05)
         desk_d = st.number_input("Profundidade da Carteira (m)", min_value=0.1, max_value=3.0, value=desk_d, step=0.05)
 
-        st.header("🛑 Restrições de Circulação (Normativas)")
+        st.header("🛑 Restrições de Circulação")
         space_lat = st.number_input("Espaçamento Lateral Mínimo (m)", min_value=0.1, max_value=2.0, value=0.40, step=0.05)
         space_front = st.number_input("Espaçamento Frontal Mínimo (m)", min_value=0.1, max_value=2.0, value=0.60, step=0.05)
         
@@ -188,7 +187,6 @@ def main():
 
     with tab_obstacles:
         st.header("Gerenciamento de Barreiras Físicas e Colunas")
-        
         with st.form("form_obstacle"):
             obs_name = st.text_input("Identificador do Obstáculo", value=f"Coluna {len(st.session_state.obstacles) + 1}")
             col1, col2, col3, col4 = st.columns(4)
@@ -199,10 +197,10 @@ def main():
             
             if st.form_submit_button("Injetar Obstáculo na Planta"):
                 if obs_x + obs_w > room_w or obs_y + obs_d > room_d:
-                    st.error("Erro Crítico: O obstáculo transborda as fronteiras físicas da sala!")
+                    st.error("Erro Crítico: O obstáculo transborda as fronteiras da sala!")
                 else:
                     st.session_state.obstacles.append(Obstacle(obs_name, obs_x, obs_y, obs_w, obs_d))
-                    st.success(f"Obstáculo '{obs_name}' integrado com sucesso!")
+                    st.rerun()
 
         if st.session_state.obstacles:
             df_obs = pd.DataFrame([{
@@ -225,41 +223,33 @@ def main():
         m3.metric("Densidade Ocupacional", f"{results['density']:.2f} Alunos/m²")
         m4.metric("Distribuição (Colunas x Filas)", f"{results['cols_count']} x {results['rows_count']}")
 
-        st.markdown("### Planta Baixa Digital e Disposição de Carteiras (Visão Superior)")
+        st.markdown("### Planta Baixa Digital e Disposição de Carteiras")
         
-        # GERAÇÃO DA PLANTA VIA MATPLOTLIB ENGINE (100% à prova de falhas no Cloud)
-        fig, ax = plt.subplots(figsize=(10, 7))
-        
-        # Fundo e bordas da sala
-        ax.set_xlim(-0.5, room_w + 0.5)
-        ax.set_ylim(-0.5, room_d + 0.5)
-        room_rect = patches.Rectangle((0, 0), room_w, room_d, linewidth=3, edgecolor='black', facecolor='#f8f9fa')
-        ax.add_patch(room_rect)
-        
-        # Zona do fiscal
-        fiscal_rect = patches.Rectangle((0, 0), room_w, corr_front, linewidth=1, edgecolor='red', facecolor='red', alpha=0.1, linestyle='--')
-        ax.add_patch(fiscal_rect)
-        ax.text(room_w/2, corr_front/2, "ÁREA DO FISCAL / QUADRO", color='red', ha='center', va='center', fontsize=10, weight='bold')
+        # POLÍTICA DE SEGURO CONTRA ERRO DE MÓDULO (FALLBACK DINÂMICO)
+        if HAS_MATPLOTLIB:
+            try:
+                fig, ax = plt.subplots(figsize=(10, 6))
+                ax.set_xlim(-0.5, room_w + 0.5)
+                ax.set_ylim(-0.5, room_d + 0.5)
+                ax.add_patch(patches.Rectangle((0, 0), room_w, room_d, linewidth=2, edgecolor='black', facecolor='#f8f9fa'))
+                ax.add_patch(patches.Rectangle((0, 0), room_w, corr_front, linewidth=1, edgecolor='red', facecolor='red', alpha=0.08, linestyle='--'))
+                
+                for obs in st.session_state.obstacles:
+                    ax.add_patch(patches.Rectangle((obs.x, obs.y), obs.w, obs.d, linewidth=1, edgecolor='darkred', facecolor='darkred', alpha=0.6))
+                
+                for d in results["desks_coords"]:
+                    ax.add_patch(patches.Rectangle((d["x1"], d["y1"]), desk_w, desk_d, linewidth=1, edgecolor='#1C83E1', facecolor='#1C83E1', alpha=0.4))
+                
+                ax.set_aspect('equal')
+                st.pyplot(fig)
+                plt.close(fig)
+            except Exception:
+                st.info("ℹ️ Gráfico vetorial indisponível temporariamente no servidor. Exibindo matriz de mapeamento discreto abaixo:")
+                st.dataframe(pd.DataFrame(results["desks_coords"]), use_container_width=True)
+        else:
+            st.info("ℹ️ Modo de segurança ativo. Coordenadas exatas das carteiras calculadas para auditoria:")
+            st.dataframe(pd.DataFrame(results["desks_coords"]), use_container_width=True)
 
-        # Obstáculos
-        for obs in st.session_state.obstacles:
-            obs_rect = patches.Rectangle((obs.x, obs.y), obs.w, obs.d, linewidth=2, edgecolor='darkred', facecolor='darkred', alpha=0.7)
-            ax.add_patch(obs_rect)
-            ax.text(obs.x + obs.w/2, obs.y + obs.d/2, obs.name, color='white', ha='center', va='center', fontsize=8, weight='bold')
-
-        # Carteiras
-        for d in results["desks_coords"]:
-            desk_rect = patches.Rectangle((d["x1"], d["y1"]), desk_w, desk_d, linewidth=1, edgecolor='#1C83E1', facecolor='#1C83E1', alpha=0.5)
-            ax.add_patch(desk_rect)
-
-        ax.set_xlabel("Largura da Sala (m)")
-        ax.set_ylabel("Profundidade da Sala (m)")
-        ax.grid(True, linestyle=':', alpha=0.6)
-        ax.set_aspect('equal')
-        
-        st.pyplot(fig)
-
-        # Balanço de áreas usando gráficos nativos do Streamlit
         st.markdown("### Balanço de Utilização de Superfície")
         df_chart = pd.DataFrame({
             "Área Ocupada (m²)": [results["occupied_area"]],
@@ -269,10 +259,8 @@ def main():
 
     with tab_simulation:
         st.header("Análise Comparativa de Cenários de Alocação")
-        
         scenarios = ["Conservador", "Padrão", "Otimizado"]
         sim_data = []
-        
         for sc in scenarios:
             res_sc = RoomOptimizer.optimize(
                 room_w, room_d, desk_w, desk_d, space_lat, space_front,
@@ -284,16 +272,7 @@ def main():
                 "Eficiência (%)": round(res_sc["efficiency"], 2),
                 "Densidade (Alunos/m²)": round(res_sc["density"], 2)
             })
-            
         st.table(pd.DataFrame(sim_data))
-        
-        st.markdown("### 🧠 Parecer Técnico Automático da IA")
-        if results["efficiency"] < 15.0:
-            st.warning("⚠️ Alerta de Ineficiência: As restrições de corredores estão gerando um aproveitamento muito baixo.")
-        elif results["total_desks"] == 0:
-            st.error("❌ Incompatibilidade Geométrica: Nenhuma carteira cabe nas configurações atuais.")
-        else:
-            st.info("✅ Layout Homologado: Dados gerados ideais para auditorias de bancas organizadoras.")
 
 if __name__ == "__main__":
     main()
